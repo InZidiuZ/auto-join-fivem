@@ -269,7 +269,8 @@ async function launchClient(pClient, pClientName) {
 
 	exec(`FiveM.exe ${launchParameters.join(" ")}`, {
 		cwd: path.join("C:", "Users", "root", "AppData", "Local", "FiveM")
-	});
+	})
+		.catch(pError => {});
 
 	console.log(`[${pClientName}] Launched FiveM.`);
 
