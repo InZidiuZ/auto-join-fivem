@@ -131,6 +131,7 @@ async function kill(pProcessId) {
 	}
 }
 
+// -1 -> unknown (server not responding)
 // 0 -> not connected
 // 1 -> connected (loading)
 // 2 -> connected (joined)
@@ -143,13 +144,13 @@ async function getClientJoinState(pLicenseIdentifier) {
 		});
 
 	if (response?.status !== 200) {
-		return 0;
+		return -1;
 	}
 
 	const { statusCode, data } = response.data;
 
 	if (statusCode !== 200) {
-		return 0;
+		return -1;
 	}
 
 	const player = data.find(pPlayer => pPlayer.licenseIdentifier === pLicenseIdentifier);
@@ -351,7 +352,7 @@ async function launchClient(pClient, pClientName) {
 		await wait(1000);
 	}
 
-	if (await getClientJoinState(pClient.licenseIdentifier) === 0) {
+	if (await getClientJoinState(pClient.licenseIdentifier) !== 2) {
 		console.log(`[${pClientName}] Failed loading in.`);
 
 		await kill(clientTask.processId);
@@ -538,7 +539,31 @@ async function launchClient(pClient, pClientName) {
 
 				console.log(`[${clientName}] Client has been up for longer than the acceptable time. Killing & restarting.`);
 
-				// NOTE: wait for both of these to be killed & dead
+				// NOTE: wait for both of these to be killed & dead for proper exit
+				await kill(client.processId);
+				await kill(client.menuProcessId);
+			}
+		}
+
+		for (let clientIndex in clients) {
+			const client = clients[clientIndex];
+
+			if (occupied) {
+				continue;
+			}
+
+			if (!client.processId) {
+				continue;
+			}
+
+			const clientJoinState = await getClientJoinState(client.licenseIdentifier);
+
+			if (clientJoinState === 0) {
+				occupied = true;
+
+				console.log(`[${clientName}] Client is not on the server but the client is active. Killing & restarting.`);
+
+				// NOTE: wait for both of these to be killed & dead for proper exit
 				await kill(client.processId);
 				await kill(client.menuProcessId);
 			}
