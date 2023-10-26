@@ -484,6 +484,8 @@ async function launchClient(pClient, pClientName) {
 		for (let clientIndex in clients) {
 			const client = clients[clientIndex];
 
+			const clientName = `cl_${Number(clientIndex) + 1}`;
+
 			if (occupied) {
 				continue;
 			}
@@ -510,7 +512,7 @@ async function launchClient(pClient, pClientName) {
 
 			occupied = true;
 
-			await collectGarbage(client.menuProcessId, `cl_${Number(clientIndex) + 1}`);
+			await collectGarbage(client.menuProcessId, clientName);
 
 			// NOTE: collect garbage every 2 minutes
 			client.garbageTimer += (2 * 60 * 1000);
@@ -519,6 +521,8 @@ async function launchClient(pClient, pClientName) {
 		for (let clientIndex in clients) {
 			const client = clients[clientIndex];
 
+			const clientName = `cl_${Number(clientIndex) + 1}`;
+
 			if (occupied) {
 				continue;
 			}
@@ -526,8 +530,6 @@ async function launchClient(pClient, pClientName) {
 			const uptime = Date.now() - client.uptimeTimer;
 
 			let acceptableUptime = 2 * 60 * 60 * 1000;
-
-			const clientName = `cl_${Number(clientIndex) + 1}`;
 
 			// NOTE: To not restart at the exact same times, add another 15 minutes of acceptable uptime to cl_2
 			if (clientName === "cl_2") {
@@ -547,6 +549,8 @@ async function launchClient(pClient, pClientName) {
 
 		for (let clientIndex in clients) {
 			const client = clients[clientIndex];
+
+			const clientName = `cl_${Number(clientIndex) + 1}`;
 
 			if (occupied) {
 				continue;
