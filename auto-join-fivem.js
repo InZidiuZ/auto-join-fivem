@@ -140,6 +140,10 @@ async function getClientJoinState(pLicenseIdentifier) {
 		timeout: 5000
 	})
 		.catch(pError => {
+			if (pError.code === "ECONNABORTED") {
+				return;
+			}
+
 			console.error(pError);
 		});
 
