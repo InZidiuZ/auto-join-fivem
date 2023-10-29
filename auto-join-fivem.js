@@ -71,13 +71,31 @@ async function setDigitalEntitlements(pClientName) {
 }
 
 async function getTasklist() {
-	const { error, stdout } = await exec("tasklist /fo csv");
+	let tasklistStdout;
 
-	if (error) {
-		throw error;
+	// never give up!!
+	while (true) {
+		const output = await exec("tasklist /fo csv")
+			.catch(pError => {
+				console.error("Failed to get tasklist. (1)", pError);
+			});
+
+		if (output) {
+			const { error, stdout } = output;
+
+			if (error) {
+				console.error("Failed to get tasklist. (2)", error);
+			} else {
+				tasklistStdout = stdout;
+
+				break;
+			}
+		}
+
+		await wait(0);
 	}
 
-	return Papa.parse(stdout).data
+	return Papa.parse(tasklistStdout).data
 		.map((pRow, pRowIndex) => {
 			if (pRowIndex === 0) {
 				return null;
@@ -140,7 +158,7 @@ async function getClientJoinState(pLicenseIdentifier) {
 		timeout: 5000
 	})
 		.catch(pError => {
-			if (pError.code === "ECONNABORTED") {
+			if (pError.code === "ECONNABORTED" || pError.code === "ERR_BAD_RESPONSE") {
 				return;
 			}
 
