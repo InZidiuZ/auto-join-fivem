@@ -149,43 +149,49 @@ async function kill(pProcessId) {
 	}
 }
 
-// -1 -> unknown (server not responding)
+// -1 -> unknown (server not responding) (will never return this, since it keeps trying infinitly for a good response)
 // 0 -> not connected
 // 1 -> connected (loading)
 // 2 -> connected (joined)
 async function getClientJoinState(pLicenseIdentifier) {
-	const response = await axios.get(`${process.env.SERVER_ENDPOINT}/op-framework/connections.json`, {
-		timeout: 5000
-	})
-		.catch(pError => {
-			if (pError.code === "ECONNABORTED" || pError.code === "ERR_BAD_RESPONSE" || pError.code === "ECONNREFUSED" || pError.code === "ERR_BAD_REQUEST") {
-				return;
-			}
+	while (true) {
+		const response = await axios.get(`${process.env.SERVER_ENDPOINT}/op-framework/connections.json`, {
+			timeout: 5000
+		})
+			.catch(pError => {
+				if (pError.code === "ECONNABORTED" || pError.code === "ERR_BAD_RESPONSE" || pError.code === "ECONNREFUSED" || pError.code === "ERR_BAD_REQUEST") {
+					return;
+				}
 
-			console.error(pError);
-		});
+				console.error(pError);
+			});
 
-	if (response?.status !== 200) {
-		return -1;
+		if (response?.status !== 200) {
+			await wait(1000);
+
+			continue;
+		}
+
+		const { statusCode, data } = response.data;
+
+		if (statusCode !== 200) {
+			await wait(1000);
+
+			continue;
+		}
+
+		const player = data.find(pPlayer => pPlayer.licenseIdentifier === pLicenseIdentifier);
+
+		if (!player) {
+			return 0;
+		}
+
+		if (!player.joined) {
+			return 1;
+		}
+
+		return 2;
 	}
-
-	const { statusCode, data } = response.data;
-
-	if (statusCode !== 200) {
-		return -1;
-	}
-
-	const player = data.find(pPlayer => pPlayer.licenseIdentifier === pLicenseIdentifier);
-
-	if (!player) {
-		return 0;
-	}
-
-	if (!player.joined) {
-		return 1;
-	}
-
-	return 2;
 }
 
 function getRandomString(pLength) {
