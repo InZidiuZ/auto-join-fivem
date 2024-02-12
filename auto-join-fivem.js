@@ -159,7 +159,7 @@ async function getClientJoinState(pLicenseIdentifier) {
 			timeout: 5000
 		})
 			.catch(pError => {
-				if (pError.code === "ECONNABORTED" || pError.code === "ERR_BAD_RESPONSE" || pError.code === "ECONNREFUSED" || pError.code === "ERR_BAD_REQUEST") {
+				if (pError.code === "ECONNABORTED" || pError.code === "ERR_BAD_RESPONSE" || pError.code === "ECONNREFUSED" || pError.code === "ERR_BAD_REQUEST" || pError.code === "ECONNRESET") {
 					return;
 				}
 
