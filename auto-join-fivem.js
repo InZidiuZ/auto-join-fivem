@@ -315,7 +315,7 @@ async function launchClient(pClient, pClientName) {
 			});
 		});
 
-		const menuTaskProcessName = pClientName === "cl_2" ? "FiveM_cl2_b2699_GTAProcess.exe" : "FiveM_b2699_GTAProcess.exe";
+		const menuTaskProcessName = pClientName === "cl_2" ? `FiveM_cl2_b${process.env.GAME_BUILD}_GTAProcess.exe` : `FiveM_b${process.env.GAME_BUILD}_GTAProcess.exe`;
 
 		clientTask = tasklist.find(pTask => pTask.processName === "FiveM.exe");
 		menuTask = tasklist.find(pTask => pTask.processName === menuTaskProcessName);
