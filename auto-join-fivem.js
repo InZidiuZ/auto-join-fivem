@@ -603,6 +603,15 @@ async function launchClient(pClient, pClientName) {
 			}
 		}
 
-		await wait(0);
+		await fs.mkdir(path.join("_logs"), {
+			recursive: true
+		});
+
+		await fs.writeFile(path.join("_logs", "clients.json"), JSON.stringify(clients, null, 2))
+			.catch(pError => {
+				console.error(pError);
+			});
+
+		await wait(250);
 	}
 })();
