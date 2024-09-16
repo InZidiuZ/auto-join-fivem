@@ -490,6 +490,7 @@ async function launchClient(pClient, pClientName) {
 
 					pClient.processId = false;
 					pClient.uptimeTimer = false;
+					pClient.menuProcessId = false;
 
 					pClient.devtools.processId = false;
 					pClient.devtools.garbageTimer = false;
@@ -532,11 +533,11 @@ async function launchClient(pClient, pClientName) {
 				continue;
 			}
 
-			if (!client.garbageTimer) {
-				client.garbageTimer = Date.now() + (2 * 60 * 1000);
+			if (!client.devtools.garbageTimer) {
+				client.devtools.garbageTimer = Date.now() + (2 * 60 * 1000);
 			}
 
-			if (Date.now() < client.garbageTimer) {
+			if (Date.now() < client.devtools.garbageTimer) {
 				continue;
 			}
 
@@ -545,7 +546,7 @@ async function launchClient(pClient, pClientName) {
 			await collectGarbage(client.menuProcessId, clientName);
 
 			// NOTE: collect garbage every 2 minutes
-			client.garbageTimer += (2 * 60 * 1000);
+			client.devtools.garbageTimer += (2 * 60 * 1000);
 		}
 
 		for (let clientIndex in clients) {
