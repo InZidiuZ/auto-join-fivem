@@ -216,13 +216,47 @@ async function executeAHK(pFileName, pVariables) {
 		connectScript = connectScript.replaceAll(`process.env.${pKey}`, pValue);
 	});
 
-	const temporaryScriptPath = path.join("temp", getRandomString(20) + ".ahk");
+	const temporaryScriptPath = path.join(path.resolve(__dirname), "temp", getRandomString(20) + ".ahk");
 
 	await fs.writeFile(temporaryScriptPath, connectScript);
 
 	const autoHotkeyPath = path.join("C:", "Program Files", "AutoHotkey", "v2", "AutoHotkey.exe");
 
-	await exec(`"${autoHotkeyPath}" ${temporaryScriptPath}`);
+	const child = childProcess.spawn(autoHotkeyPath, [ temporaryScriptPath ]);
+
+	let exited = false;
+
+	const timeout = setTimeout(() => {
+		console.log(`[ahk] Script took too long. Killing child now...`);
+
+		child.kill();
+
+		exited = true;
+	}, 30_000);
+
+	child.on("exit", (pCode, pSignal) => {
+		clearTimeout(timeout);
+
+		if (pSignal) {
+			console.log(`[ahk] child killed due to timeout.`);
+		} else {
+			console.log(`[ahk] Child exited with code ${pCode}.`);
+		}
+
+		exited = true;
+	});
+
+	child.on("error", pError => {
+		clearTimeout(timeout);
+
+		console.error(`[ahk] Failed to start process: ${pError.message}.`);
+
+		exited = true;
+	});
+
+	while (!exited) {
+		await wait(0);
+	}
 
 	await fs.rm(temporaryScriptPath);
 
@@ -524,12 +558,16 @@ async function launchClient(pClient, pClientName) {
 			const devtoolsProcessId = client.devtools.processId;
 
 			if (!devtoolsProcessId) {
+				console.log(`[${clientName}] No devtools process ID.`);
+
 				continue;
 			}
 
 			const devtoolsAlive = tasklist.some(pTask => pTask.processId === devtoolsProcessId);
 
 			if (!devtoolsAlive) {
+				console.log(`[${clientName}] Devtools is not alive.`);
+
 				continue;
 			}
 
