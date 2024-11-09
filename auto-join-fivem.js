@@ -259,14 +259,6 @@ async function executeAHK(pFileName, pVariables) {
 	}
 
 	await fs.rm(temporaryScriptPath);
-
-	const files = await fs.readdir("temp");
-
-	if (files.length === 0) {
-		await fs.rm("temp", {
-			recursive: true
-		});
-	}
 }
 
 async function openDevtools(pClientName, pMenuTask) {
