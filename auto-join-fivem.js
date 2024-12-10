@@ -47,7 +47,7 @@ async function setDigitalEntitlements(pClientName) {
 	const clientTwoStored = !!(await fs.stat(clientTwoPath).catch(pError => {}));
 
 	if (clientStored) {
-		if (clientOneStored === clientTwoStored) {
+		if (clientOneStored && clientTwoStored) {
 			throw "Something has gone wrong with DigitalEntitlements handling.";
 		}
 
