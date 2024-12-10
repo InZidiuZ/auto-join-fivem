@@ -531,6 +531,10 @@ async function launchClient(pClient, pClientName) {
 				return;
 			}
 
+			if (!pClient.licenseIdentifier) {
+				return;
+			}
+
 			if (!pClient.processId) {
 				occupied = true;
 
