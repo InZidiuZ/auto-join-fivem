@@ -551,6 +551,10 @@ async function launchClient(pClient, pClientName) {
 				continue;
 			}
 
+			if (!pClient.licenseIdentifier) {
+				continue;
+			}
+
 			const devtoolsProcessId = client.devtools.processId;
 
 			if (!devtoolsProcessId) {
@@ -589,6 +593,10 @@ async function launchClient(pClient, pClientName) {
 			const clientName = `cl_${Number(clientIndex) + 1}`;
 
 			if (occupied) {
+				continue;
+			}
+
+			if (!pClient.licenseIdentifier) {
 				continue;
 			}
 
