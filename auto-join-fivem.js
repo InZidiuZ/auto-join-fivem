@@ -551,7 +551,7 @@ async function launchClient(pClient, pClientName) {
 				continue;
 			}
 
-			if (!pClient.licenseIdentifier) {
+			if (!client.licenseIdentifier) {
 				continue;
 			}
 
@@ -596,7 +596,7 @@ async function launchClient(pClient, pClientName) {
 				continue;
 			}
 
-			if (!pClient.licenseIdentifier) {
+			if (!client.licenseIdentifier) {
 				continue;
 			}
 
