@@ -312,8 +312,6 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Set DigitalEntitlements.`);
 
-	const oldTasklist = await getTasklist();
-
 	const launchParameters = [
 		"-pure_1"
 	];
@@ -333,17 +331,11 @@ async function launchClient(pClient, pClientName) {
 	let menuTask;
 
 	while (true) {
-		let tasklist = await getTasklist();
-
-		tasklist = tasklist.filter(pTask => {
-			return !oldTasklist.find(pOldTask => {
-				return pTask.processId === pOldTask.processId;
-			});
-		});
+		const tasklist = await getTasklist();
 
 		const menuTaskProcessName = pClientName === "cl_2"
-			? `FiveM_cl2_b${process.env.GAME_BUILD}_GTAProcess.exe`
-			: `FiveM_b${process.env.GAME_BUILD}_GTAProcess.exe`;
+			? `FiveM_cl2_GTAProcess.exe`
+			: `FiveM_GTAProcess.exe`;
 
 		clientTask = tasklist.find(pTask => pTask.processName === "FiveM.exe");
 		menuTask = tasklist.find(pTask => pTask.processName === menuTaskProcessName);
