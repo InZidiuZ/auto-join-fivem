@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const fs = require("node:fs/promises");
+const fs = require("fs/promises");
 
 const path = require("path");
 const util = require("util");
@@ -92,7 +92,7 @@ async function getTasklist() {
 			}
 		}
 
-		await wait(0);
+		await wait(1_000);
 	}
 
 	return Papa.parse(tasklistStdout).data
@@ -128,7 +128,7 @@ async function closeOldClients() {
 			}
 		});
 
-		await wait(1000);
+		await wait(1_000);
 	}
 }
 
@@ -145,7 +145,7 @@ async function kill(pProcessId) {
 		await exec(`taskkill /F /pid ${pProcessId}`)
 			.catch(pError => {});
 
-		await wait(1000);
+		await wait(1_000);
 	}
 }
 
@@ -167,7 +167,7 @@ async function getClientJoinState(pLicenseIdentifier) {
 			});
 
 		if (response?.status !== 200) {
-			await wait(1000);
+			await wait(1_000);
 
 			continue;
 		}
@@ -175,7 +175,7 @@ async function getClientJoinState(pLicenseIdentifier) {
 		const { statusCode, data } = response.data;
 
 		if (statusCode !== 200) {
-			await wait(1000);
+			await wait(1_000);
 
 			continue;
 		}
@@ -255,7 +255,7 @@ async function executeAHK(pFileName, pVariables) {
 	});
 
 	while (!exited) {
-		await wait(0);
+		await wait(1_000);
 	}
 
 	await fs.rm(temporaryScriptPath);
@@ -287,7 +287,7 @@ async function openDevtools(pClientName, pMenuTask) {
 			break;
 		}
 
-		await wait(0);
+		await wait(1_000);
 	}
 
 	return devtoolsTask;
@@ -352,7 +352,7 @@ async function launchClient(pClient, pClientName) {
 			break;
 		}
 
-		await wait(0);
+		await wait(1_000);
 	}
 
 	console.log(`[${pClientName}] Client task & menu task detected.`);
@@ -363,7 +363,7 @@ async function launchClient(pClient, pClientName) {
 		console.log(`[${pClientName}] Old client session is lingering on the server, waiting for it to go away.`);
 
 		while (await getClientJoinState(pClient.licenseIdentifier) > 0) {
-			await wait(1000);
+			await wait(1_000);
 		}
 
 		console.log(`[${pClientName}] Old client session is now gone.`);
@@ -376,7 +376,7 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Completed client connect sequence.`);
 
-	const connectTimer = Date.now() + (5 * 60 * 1000);
+	const connectTimer = Date.now() + (5 * 60 * 1_000);
 
 	while (true) {
 		const clientJoinState = await getClientJoinState(pClient.licenseIdentifier);
@@ -399,13 +399,13 @@ async function launchClient(pClient, pClientName) {
 			return;
 		}
 
-		await wait(1000);
+		await wait(1_000);
 	}
 
 	console.log(`[${pClientName}] Client has connected to the server.`);
 
 	while (await getClientJoinState(pClient.licenseIdentifier) === 1) {
-		await wait(1000);
+		await wait(1_000);
 	}
 
 	if (await getClientJoinState(pClient.licenseIdentifier) !== 2) {
@@ -572,7 +572,7 @@ async function launchClient(pClient, pClientName) {
 			}
 
 			if (!client.devtools.garbageTimer) {
-				client.devtools.garbageTimer = Date.now() + (2 * 60 * 1000);
+				client.devtools.garbageTimer = Date.now() + (2 * 60 * 1_000);
 			}
 
 			if (Date.now() < client.devtools.garbageTimer) {
@@ -584,7 +584,7 @@ async function launchClient(pClient, pClientName) {
 			await collectGarbage(client.menuProcessId, clientName);
 
 			// NOTE: collect garbage every 2 minutes
-			client.devtools.garbageTimer += (2 * 60 * 1000);
+			client.devtools.garbageTimer += (2 * 60 * 1_000);
 		}
 
 		for (let clientIndex in clients) {
@@ -602,11 +602,11 @@ async function launchClient(pClient, pClientName) {
 
 			const uptime = Date.now() - client.uptimeTimer;
 
-			let acceptableUptime = 2 * 60 * 60 * 1000;
+			let acceptableUptime = 2 * 60 * 60 * 1_000;
 
 			// NOTE: To not restart at the exact same times, add another 15 minutes of acceptable uptime to cl_2
 			if (clientName === "cl_2") {
-				acceptableUptime += (15 * 60 * 1000);
+				acceptableUptime += (15 * 60 * 1_000);
 			}
 
 			if (uptime > acceptableUptime) {
@@ -655,6 +655,6 @@ async function launchClient(pClient, pClientName) {
 				console.error(pError);
 			});
 
-		await wait(250);
+		await wait(1_000);
 	}
 })();
