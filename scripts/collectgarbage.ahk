@@ -1,5 +1,5 @@
 ; Exit script if window does not exist (CefBrowserWindow is always the class of the NUI devtools)
-if (!WinExist("ahk_class CefBrowserWindow ahk_pid process.env.PROCESS_ID"))
+if (!WinExist("NUI DevTools ahk_exe process.env.PROCESS_NAME"))
 {
 	return
 }

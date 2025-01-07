@@ -268,8 +268,6 @@ async function openDevtools(pClientName, pMenuTask) {
 		"PROCESS_ID": pMenuTask.processId
 	});
 
-	let devtoolsTask;
-
 	while (true) {
 		let tasklist = await getTasklist();
 
@@ -281,7 +279,7 @@ async function openDevtools(pClientName, pMenuTask) {
 
 		const devtoolsTaskProcessName = pClientName === "cl_2" ? "FiveM_cl2_ChromeBrowser" : "FiveM_ChromeBrowser";
 
-		devtoolsTask = tasklist.find(pTask => pTask.processName === devtoolsTaskProcessName);
+		const devtoolsTask = tasklist.find(pTask => pTask.processName === devtoolsTaskProcessName);
 
 		if (devtoolsTask) {
 			break;
@@ -289,15 +287,15 @@ async function openDevtools(pClientName, pMenuTask) {
 
 		await wait(1_000);
 	}
-
-	return devtoolsTask;
 }
 
-async function collectGarbage(pClientProcessId, pClientName) {
+async function collectGarbage(pClientName) {
 	console.log(`[${pClientName}] Starting garbage collection.`);
 
+	const processName = pClientName === "cl_2" ? "FiveM_cl2_GTAProcess.exe" : "FiveM_GTAProcess.exe";
+
 	await executeAHK("collectgarbage.ahk", {
-		"PROCESS_ID": pClientProcessId
+		"PROCESS_NAME": processName 
 	});
 
 	console.log(`[${pClientName}] Completed garbage collection.`);
@@ -416,11 +414,9 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Client has loaded into the server.`);
 
-	const devtoolsTask = await openDevtools(pClientName, menuTask);
+	await openDevtools(pClientName, menuTask);
 
 	console.log(`[${pClientName}] Opened & found devtools task.`);
-
-	pClient.devtools.processId = devtoolsTask.processId;
 
 	await setDigitalEntitlements(null);
 
@@ -459,7 +455,6 @@ async function launchClient(pClient, pClientName) {
 			launching: false,
 			uptimeTimer: false,
 			devtools: {
-				processId: false,
 				garbageTimer: false
 			}
 		},
@@ -471,7 +466,6 @@ async function launchClient(pClient, pClientName) {
 			launching: false,
 			uptimeTimer: false,
 			devtools: {
-				processId: false,
 				garbageTimer: false
 			}
 		}
@@ -510,7 +504,6 @@ async function launchClient(pClient, pClientName) {
 					pClient.uptimeTimer = false;
 					pClient.menuProcessId = false;
 
-					pClient.devtools.processId = false;
 					pClient.devtools.garbageTimer = false;
 				}
 			}
@@ -547,22 +540,6 @@ async function launchClient(pClient, pClientName) {
 				continue;
 			}
 
-			const devtoolsProcessId = client.devtools.processId;
-
-			if (!devtoolsProcessId) {
-				console.log(`[${clientName}] No devtools process ID.`);
-
-				continue;
-			}
-
-			const devtoolsAlive = tasklist.some(pTask => pTask.processId === devtoolsProcessId);
-
-			if (!devtoolsAlive) {
-				console.log(`[${clientName}] Devtools is not alive.`);
-
-				continue;
-			}
-
 			if (!client.devtools.garbageTimer) {
 				client.devtools.garbageTimer = Date.now() + (2 * 60 * 1_000);
 			}
@@ -573,7 +550,7 @@ async function launchClient(pClient, pClientName) {
 
 			occupied = true;
 
-			await collectGarbage(client.menuProcessId, clientName);
+			await collectGarbage(clientName);
 
 			// NOTE: collect garbage every 2 minutes
 			client.devtools.garbageTimer += (2 * 60 * 1_000);
