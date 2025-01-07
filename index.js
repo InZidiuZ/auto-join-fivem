@@ -262,35 +262,24 @@ async function executeAHK(pFileName, pVariables) {
 }
 
 async function openDevtools(pClientName, pMenuTask) {
-	const oldTasklist = await getTasklist();
-
 	await executeAHK("devtools.ahk", {
 		"PROCESS_ID": pMenuTask.processId
 	});
 
-	let devtoolsTask;
-
 	while (true) {
-		let tasklist = await getTasklist();
-
-		tasklist = tasklist.filter(pTask => {
-			return !oldTasklist.find(pOldTask => {
-				return pTask.processId === pOldTask.processId;
-			});
-		});
+		const tasklist = await getTasklist();
 
 		const devtoolsTaskProcessName = pClientName === "cl_2" ? "FiveM_cl2_ChromeBrowser" : "FiveM_ChromeBrowser";
 
-		devtoolsTask = tasklist.find(pTask => pTask.processName === devtoolsTaskProcessName);
+		const devtoolsTasks = tasklist.filter(pTask => pTask.processName === devtoolsTaskProcessName);
 
-		if (devtoolsTask) {
+		// NOTE: when we have 5, it will mean the devtools is open
+		if (devtoolsTasks.length === 5) {
 			break;
 		}
 
 		await wait(1_000);
 	}
-
-	return devtoolsTask;
 }
 
 async function collectGarbage(pClientProcessId, pClientName) {
@@ -416,11 +405,9 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Client has loaded into the server.`);
 
-	const devtoolsTask = await openDevtools(pClientName, menuTask);
+	await openDevtools(pClientName, menuTask);
 
 	console.log(`[${pClientName}] Opened & found devtools task.`);
-
-	pClient.devtools.processId = devtoolsTask.processId;
 
 	await setDigitalEntitlements(null);
 
@@ -459,7 +446,6 @@ async function launchClient(pClient, pClientName) {
 			launching: false,
 			uptimeTimer: false,
 			devtools: {
-				processId: false,
 				garbageTimer: false
 			}
 		},
@@ -471,7 +457,6 @@ async function launchClient(pClient, pClientName) {
 			launching: false,
 			uptimeTimer: false,
 			devtools: {
-				processId: false,
 				garbageTimer: false
 			}
 		}
@@ -510,7 +495,6 @@ async function launchClient(pClient, pClientName) {
 					pClient.uptimeTimer = false;
 					pClient.menuProcessId = false;
 
-					pClient.devtools.processId = false;
 					pClient.devtools.garbageTimer = false;
 				}
 			}
@@ -547,18 +531,12 @@ async function launchClient(pClient, pClientName) {
 				continue;
 			}
 
-			const devtoolsProcessId = client.devtools.processId;
+			const devtoolsTaskProcessName = clientName === "cl_2" ? "FiveM_cl2_ChromeBrowser" : "FiveM_ChromeBrowser";
 
-			if (!devtoolsProcessId) {
-				console.log(`[${clientName}] No devtools process ID.`);
+			const devtoolsTasks = tasklist.filter(pTask => pTask.processName === devtoolsTaskProcessName);
 
-				continue;
-			}
-
-			const devtoolsAlive = tasklist.some(pTask => pTask.processId === devtoolsProcessId);
-
-			if (!devtoolsAlive) {
-				console.log(`[${clientName}] Devtools is not alive.`);
+			if (devtoolsTasks.length !== 5) {
+				console.log(`[${clientName}] Devtools does not appear to be open.`);
 
 				continue;
 			}
