@@ -268,7 +268,7 @@ async function openDevtools(pClientName, pMenuTask) {
 		"PROCESS_ID": pMenuTask.processId
 	});
 
-	while (true) {
+	for (let attempt = 0; attempt < 30; attempt++) {
 		let tasklist = await getTasklist();
 
 		tasklist = tasklist.filter(pTask => {
@@ -282,11 +282,13 @@ async function openDevtools(pClientName, pMenuTask) {
 		const devtoolsTask = tasklist.find(pTask => pTask.processName === devtoolsTaskProcessName);
 
 		if (devtoolsTask) {
-			break;
+			return true;
 		}
 
 		await wait(1_000);
 	}
+
+	return false;
 }
 
 async function collectGarbage(pClientName) {
@@ -422,7 +424,21 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Client has loaded into the server.`);
 
-	await openDevtools(pClientName, menuTask);
+	const openedDevtools = await openDevtools(pClientName, menuTask);
+
+	if (!openedDevtools) {
+		console.log(`[${pClientName}] Failed to open devtools.`);
+
+		await kill(clientTask.processId);
+
+		await wait(30_000);
+
+		console.log(`[${pClientName}] Finished exit process.`);
+
+		pClient.launching = false;
+
+		return;
+	}
 
 	console.log(`[${pClientName}] Opened & found devtools task.`);
 
