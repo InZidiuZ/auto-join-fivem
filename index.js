@@ -73,7 +73,6 @@ async function setDigitalEntitlements(pClientName) {
 async function getTasklist() {
 	let tasklistStdout;
 
-	// never give up!!
 	while (true) {
 		const output = await exec("tasklist /fo csv")
 			.catch(pError => {
@@ -156,10 +155,26 @@ async function kill(pProcessId) {
 async function getClientJoinState(pLicenseIdentifier) {
 	while (true) {
 		const response = await axios.get(`${process.env.SERVER_ENDPOINT}/op-framework/connections.json`, {
-			timeout: 5000
+			timeout: 5_000
 		})
 			.catch(pError => {
-				if (pError.code === "ECONNABORTED" || pError.code === "ERR_BAD_RESPONSE" || pError.code === "ECONNREFUSED" || pError.code === "ERR_BAD_REQUEST" || pError.code === "ECONNRESET") {
+				if (pError.code === "ECONNABORTED") {
+					return;
+				}
+
+				if (pError.code === "ERR_BAD_RESPONSE") {
+					return;
+				}
+
+				if (pError.code === "ECONNREFUSED") {
+					return;
+				}
+
+				if (pError.code === "ERR_BAD_REQUEST") {
+					return;
+				}
+
+				if (pError.code === "ECONNRESET") {
 					return;
 				}
 
