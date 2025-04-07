@@ -347,6 +347,8 @@ async function launchClient(pClient, pClientName) {
 	let clientTask;
 	let menuTask;
 
+	const launchTimer = Date.now() + (30 * 1_000);
+
 	while (true) {
 		let tasklist = await getTasklist();
 
@@ -365,6 +367,14 @@ async function launchClient(pClient, pClientName) {
 
 		if (clientTask && menuTask) {
 			break;
+		}
+
+		if (Date.now() >= launchTimer) {
+			console.log(`[${pClientName}] Failed launching, took too long to launch process.`);
+
+			pClient.launching = false;
+
+			return;
 		}
 
 		await wait(1_000);
