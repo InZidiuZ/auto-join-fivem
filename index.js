@@ -306,16 +306,23 @@ async function openDevtools(pClientName, pMenuTask) {
 	return false;
 }
 
+const processNames = new Map();
+
 async function collectGarbage(pClientName) {
 	console.log(`[${pClientName}] Starting garbage collection.`);
 
-	const processName = pClientName === "cl_2" ? "FiveM_cl2_GTAProcess.exe" : "FiveM_GTAProcess.exe";
+	const processName = processNames.get(pClientName);
 
 	await executeAHK("collectgarbage.ahk", {
-		"PROCESS_NAME": processName 
+		"PROCESS_NAME": processName
 	});
 
 	console.log(`[${pClientName}] Completed garbage collection.`);
+}
+
+// "FiveM_bXXXX_GTAProcess.exe" -> "FiveM_GTAProcess.exe"
+function removeBuildFromProcessName(pProcessName) {
+	return pProcessName.replace(/_b\d+/, "");
 }
 
 async function launchClient(pClient, pClientName) {
@@ -363,9 +370,13 @@ async function launchClient(pClient, pClientName) {
 			: `FiveM_GTAProcess.exe`;
 
 		clientTask = tasklist.find(pTask => pTask.processName === "FiveM.exe");
-		menuTask = tasklist.find(pTask => pTask.processName === menuTaskProcessName);
+		menuTask = tasklist.find(pTask => removeBuildFromProcessName(pTask.processName) === menuTaskProcessName);
 
 		if (clientTask && menuTask) {
+			processNames.set(pClientName, menuTask.processName);
+
+			console.log(`[${pClientName}] Set process name as ${menuTask.processName}.`);
+
 			break;
 		}
 
@@ -522,21 +533,6 @@ async function launchClient(pClient, pClientName) {
 
 	while (true) {
 		const tasklist = await getTasklist();
-
-		await forEach(tasklist, async pTask => {
-			if (!pTask.processName.startsWith("FiveM_")) {
-				return;
-			}
-
-			if (!pTask.processName.endsWith("_DumpServer")) {
-				return;
-			}
-
-			// NOTE: DumpServers that exist while the client is active are also killed, but it's honestly not a big deal
-			console.log(`[Clients] Killing a DumpServer process (${pTask.processName}).`);
-
-			await kill(pTask.processId);
-		});
 
 		clients.forEach((pClient, pClientIndex) => {
 			if (pClient.launching) {
