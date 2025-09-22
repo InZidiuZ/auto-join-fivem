@@ -1,20 +1,17 @@
 require("dotenv").config();
 
 const fs = require("fs/promises");
-
 const path = require("path");
 const util = require("util");
 const crypto = require("crypto");
-
 const childProcess = require("child_process");
 
-const exec = util.promisify(childProcess.exec);
-
 const { forEach } = require("p-iteration");
-
 const axios = require("axios");
-
 const Papa = require("papaparse");
+const express = require("express");
+
+const exec = util.promisify(childProcess.exec);
 
 function wait(pMilliseconds) {
 	return new Promise(pResolve => setTimeout(pResolve, pMilliseconds));
@@ -26,45 +23,22 @@ async function setDigitalEntitlements(pClientName) {
 	const clientOnePath = path.join("C:", "Users", "root", "AppData", "Local", "DigitalEntitlements-cl_1");
 	const clientTwoPath = path.join("C:", "Users", "root", "AppData", "Local", "DigitalEntitlements-cl_2");
 
-	let clientStored = !!(await fs.stat(clientPath).catch(pError => {}));
+	await fs.rm(clientPath, { recursive: true })
+		.catch(pError => {
+			if (pError.code === "ENOENT") {
+				return;
+			}
 
-	// NOTE: sometimes an empty 'DigitalEntitlements' are left behind, not sure why
-	if (clientStored) {
-		const files = await fs.readdir(clientPath);
-
-		if (files.length === 0) {
-			await fs.rm(clientPath, {
-				recursive: true
-			});
-
-			clientStored = false;
-
-			console.log("[DigitalEntitlements] Deleting empty folder.");
-		}
-	}
-
-	const clientOneStored = !!(await fs.stat(clientOnePath).catch(pError => {}));
-	const clientTwoStored = !!(await fs.stat(clientTwoPath).catch(pError => {}));
-
-	if (clientStored) {
-		if (clientOneStored && clientTwoStored) {
-			throw "Something has gone wrong with DigitalEntitlements handling.";
-		}
-
-		if (!clientOneStored) {
-			await fs.rename(clientPath, clientOnePath);
-		} else {
-			await fs.rename(clientPath, clientTwoPath);
-		}
-	}
+			console.error(pError);
+		});
 
 	switch (pClientName) {
 		case "cl_1":
-			await fs.rename(clientOnePath, clientPath);
+			await fs.cp(clientOnePath, clientPath, { recursive: true });
 
 			break;
 		case "cl_2":
-			await fs.rename(clientTwoPath, clientPath);
+			await fs.cp(clientTwoPath, clientPath, { recursive: true });
 
 			break;
 	}
@@ -330,6 +304,21 @@ async function launchClient(pClient, pClientName) {
 
 	pClient.launching = true;
 
+	// NOTE: might not be necessary after all
+	/*
+	const rosIdPath = path.join("C:", "Users", "root", "AppData", "Roaming", "CitizenFX", pClientName === "cl_2" ? "ros_idCL2.dat" : "ros_id.dat");
+
+	// NOTE: deleting (and then regenerating) this fixes cl2 breaking
+	await fs.rm(rosIdPath)
+		.catch(pError => {
+			if (pError.code === "ENOENT") {
+				return;
+			}
+
+			console.error(pError);
+		});
+		*/
+
 	await setDigitalEntitlements(pClientName);
 
 	console.log(`[${pClientName}] Set DigitalEntitlements.`);
@@ -460,20 +449,26 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Client has loaded into the server.`);
 
-	const openedDevtools = await openDevtools(pClientName, menuTask);
+	if (process.env.IS_SPECTATOR) {
+		await executeAHK("f8close.ahk", {
+			"PROCESS_ID": menuTask.processId
+		});
+	} else {
+		const openedDevtools = await openDevtools(pClientName, menuTask);
 
-	if (!openedDevtools) {
-		console.log(`[${pClientName}] Failed to open devtools.`);
+		if (!openedDevtools) {
+			console.log(`[${pClientName}] Failed to open devtools.`);
 
-		await kill(clientTask.processId);
+			await kill(clientTask.processId);
 
-		await wait(30_000);
+			await wait(30_000);
 
-		console.log(`[${pClientName}] Finished exit process.`);
+			console.log(`[${pClientName}] Finished exit process.`);
 
-		pClient.launching = false;
+			pClient.launching = false;
 
-		return;
+			return;
+		}
 	}
 
 	console.log(`[${pClientName}] Opened & found devtools task.`);
@@ -488,6 +483,32 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Finished launching.`);
 }
+
+const licenseIdentifiers = process.env.LICENSE_IDENTIFIERS.split(" ");
+
+const clients = [
+	{
+		licenseIdentifier: licenseIdentifiers[0],
+		processId: false,
+		menuProcessId: false,
+		launching: false,
+		uptimeTimer: false,
+		devtools: {
+			garbageTimer: false
+		}
+	},
+
+	{
+		licenseIdentifier: licenseIdentifiers[1],
+		processId: false,
+		menuProcessId: false,
+		launching: false,
+		uptimeTimer: false,
+		devtools: {
+			garbageTimer: false
+		}
+	}
+];
 
 (async () => {
 	await fs.rm("temp", {
@@ -504,32 +525,6 @@ async function launchClient(pClient, pClientName) {
 	await closeOldClients();
 
 	await setDigitalEntitlements(null);
-
-	const licenseIdentifiers = process.env.LICENSE_IDENTIFIERS.split(" ");
-
-	const clients = [
-		{
-			licenseIdentifier: licenseIdentifiers[0],
-			processId: false,
-			menuProcessId: false,
-			launching: false,
-			uptimeTimer: false,
-			devtools: {
-				garbageTimer: false
-			}
-		},
-
-		{
-			licenseIdentifier: licenseIdentifiers[1],
-			processId: false,
-			menuProcessId: false,
-			launching: false,
-			uptimeTimer: false,
-			devtools: {
-				garbageTimer: false
-			}
-		}
-	];
 
 	while (true) {
 		const tasklist = await getTasklist();
@@ -573,6 +568,10 @@ async function launchClient(pClient, pClientName) {
 		});
 
 		for (let clientIndex in clients) {
+			if (process.env.IS_SPECTATOR) {
+				continue;
+			}
+
 			const client = clients[clientIndex];
 
 			const clientName = `cl_${Number(clientIndex) + 1}`;
@@ -602,6 +601,10 @@ async function launchClient(pClient, pClientName) {
 		}
 
 		for (let clientIndex in clients) {
+			if (process.env.IS_SPECTATOR) {
+				continue;
+			}
+
 			const client = clients[clientIndex];
 
 			const clientName = `cl_${Number(clientIndex) + 1}`;
@@ -616,7 +619,7 @@ async function launchClient(pClient, pClientName) {
 
 			const uptime = Date.now() - client.uptimeTimer;
 
-			let acceptableUptime = 2 * 60 * 60 * 1_000;
+			let acceptableUptime = 4 * 60 * 60 * 1_000;
 
 			// NOTE: To not restart at the exact same times, add another 15 minutes of acceptable uptime to cl_2
 			if (clientName === "cl_2") {
@@ -672,3 +675,21 @@ async function launchClient(pClient, pClientName) {
 		await wait(1_000);
 	}
 })();
+
+const app = express();
+
+app.get("/status", (pRequest, pResponse) => {
+	pResponse.status(200).json({
+		clients: clients
+	});
+});
+
+const port = process.env.PORT || 3000;
+
+app.listen(port, pError => {
+	if (pError) {
+		throw pError;
+	}
+
+	console.log(`[express] Listening on port ${port}!`);
+});

@@ -9,9 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.7.9",
-    "dotenv": "^16.4.7",
+    "axios": "^1.12.2",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
     "p-iteration": "^1.1.8",
-    "papaparse": "^5.4.1"
+    "papaparse": "^5.5.3"
   }
 }
