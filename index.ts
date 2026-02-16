@@ -1,23 +1,39 @@
-require("dotenv").config();
+import fs from "fs/promises";
+import path from "path";
+import util from "util";
+import crypto from "crypto";
+import childProcess from "child_process";
 
-const fs = require("fs/promises");
-const path = require("path");
-const util = require("util");
-const crypto = require("crypto");
-const childProcess = require("child_process");
+import { forEach } from "p-iteration";
+import axios from "axios";
+import Papa from "papaparse";
+import express from "express";
 
-const { forEach } = require("p-iteration");
-const axios = require("axios");
-const Papa = require("papaparse");
-const express = require("express");
+import config from "./config";
+
+interface Player {
+	licenseIdentifier: string;
+	joined: boolean;
+}
+
+interface Client {
+	licenseIdentifier: string;
+	processId: number | null;
+	menuProcessId: number | null;
+	launching: boolean;
+	uptimeTimer: number | null;
+	devtools: {
+		garbageTimer: number | null;
+	}
+}
 
 const exec = util.promisify(childProcess.exec);
 
-function wait(pMilliseconds) {
+function wait(pMilliseconds: number) {
 	return new Promise(pResolve => setTimeout(pResolve, pMilliseconds));
 }
 
-async function setDigitalEntitlements(pClientName) {
+async function setDigitalEntitlements(pClientName?: string) {
 	const clientPath = path.join("C:", "Users", "root", "AppData", "Local", "DigitalEntitlements");
 
 	const clientOnePath = path.join("C:", "Users", "root", "AppData", "Local", "DigitalEntitlements-cl_1");
@@ -54,10 +70,10 @@ async function getTasklist() {
 			});
 
 		if (output) {
-			const { error, stdout } = output;
+			const { stderr, stdout } = output;
 
-			if (error) {
-				console.error("Failed to get tasklist. (2)", error);
+			if (stderr) {
+				console.error("Failed to get tasklist. (2)", stderr);
 			} else {
 				tasklistStdout = stdout;
 
@@ -68,7 +84,7 @@ async function getTasklist() {
 		await wait(1_000);
 	}
 
-	return Papa.parse(tasklistStdout).data
+	return Papa.parse<[ string, string ]>(tasklistStdout).data
 		.map((pRow, pRowIndex) => {
 			if (pRowIndex === 0) {
 				return null;
@@ -79,7 +95,7 @@ async function getTasklist() {
 				processId: Number(pRow[1])
 			}
 		})
-		.filter(pRow => pRow);
+		.filter(pRow => pRow !== null);
 }
 
 async function closeOldClients() {
@@ -105,7 +121,7 @@ async function closeOldClients() {
 	}
 }
 
-async function kill(pProcessId) {
+async function kill(pProcessId: number) {
 	while (true) {
 		const tasklist = await getTasklist();
 
@@ -126,9 +142,12 @@ async function kill(pProcessId) {
 // 0 -> not connected
 // 1 -> connected (loading)
 // 2 -> connected (joined)
-async function getClientJoinState(pLicenseIdentifier) {
+async function getClientJoinState(pLicenseIdentifier: string) {
 	while (true) {
-		const response = await axios.get(`${process.env.SERVER_ENDPOINT}/op-framework/connections.json`, {
+		const response = await axios.get<{
+			statusCode: number;
+			data: Player[]
+		}>(`${config.SERVER_ENDPOINT}/op-framework/connections.json`, {
 			timeout: 5_000
 		})
 			.catch(pError => {
@@ -183,11 +202,11 @@ async function getClientJoinState(pLicenseIdentifier) {
 	}
 }
 
-function getRandomString(pLength) {
+function getRandomString(pLength: number) {
 	return crypto.randomBytes(pLength).toString("hex");
 }
 
-async function executeAHK(pFileName, pVariables) {
+async function executeAHK(pFileName: string, pVariables: { [key: string]: string | number} ) {
 	await fs.mkdir("temp")
 		.catch(pError => {
 			if (pError.code === "EEXIST") {
@@ -202,7 +221,7 @@ async function executeAHK(pFileName, pVariables) {
 	});
 
 	Object.entries(pVariables).forEach(([pKey, pValue]) => {
-		connectScript = connectScript.replaceAll(`process.env.${pKey}`, pValue);
+		connectScript = connectScript.replaceAll(`process.env.${pKey}`, String(pValue));
 	});
 
 	const temporaryScriptPath = path.join(path.resolve(__dirname), "temp", getRandomString(20) + ".ahk");
@@ -250,11 +269,11 @@ async function executeAHK(pFileName, pVariables) {
 	await fs.rm(temporaryScriptPath);
 }
 
-async function openDevtools(pClientName, pMenuTask) {
+async function openDevtools(pClientName: string, pMenuTaskProcessId: number) {
 	const oldTasklist = await getTasklist();
 
 	await executeAHK("devtools.ahk", {
-		"PROCESS_ID": pMenuTask.processId
+		"PROCESS_ID": pMenuTaskProcessId
 	});
 
 	for (let attempt = 0; attempt < 30; attempt++) {
@@ -282,7 +301,7 @@ async function openDevtools(pClientName, pMenuTask) {
 
 const processNames = new Map();
 
-async function collectGarbage(pClientName) {
+async function collectGarbage(pClientName: string) {
 	console.log(`[${pClientName}] Starting garbage collection.`);
 
 	const processName = processNames.get(pClientName);
@@ -295,11 +314,11 @@ async function collectGarbage(pClientName) {
 }
 
 // "FiveM_bXXXX_GTAProcess.exe" -> "FiveM_GTAProcess.exe"
-function removeBuildFromProcessName(pProcessName) {
+function removeBuildFromProcessName(pProcessName: string) {
 	return pProcessName.replace(/_b\d+/, "");
 }
 
-async function launchClient(pClient, pClientName) {
+async function launchClient(pClient: Client, pClientName: string) {
 	console.log(`[${pClientName}] Launching.`);
 
 	pClient.launching = true;
@@ -396,7 +415,7 @@ async function launchClient(pClient, pClientName) {
 
 	await executeAHK("f8connect.ahk", {
 		"PROCESS_ID": menuTask.processId,
-		"SERVER_IP": process.env.SERVER_IP
+		"SERVER_IP": config.SERVER_IP
 	});
 
 	console.log(`[${pClientName}] Completed client connect sequence.`);
@@ -449,12 +468,12 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Client has loaded into the server.`);
 
-	if (process.env.IS_SPECTATOR) {
+	if (config.IS_SPECTATOR) {
 		await executeAHK("f8close.ahk", {
 			"PROCESS_ID": menuTask.processId
 		});
 	} else {
-		const openedDevtools = await openDevtools(pClientName, menuTask);
+		const openedDevtools = await openDevtools(pClientName, menuTask.processId);
 
 		if (!openedDevtools) {
 			console.log(`[${pClientName}] Failed to open devtools.`);
@@ -473,7 +492,7 @@ async function launchClient(pClient, pClientName) {
 
 	console.log(`[${pClientName}] Opened & found devtools task.`);
 
-	await setDigitalEntitlements(null);
+	await setDigitalEntitlements();
 
 	pClient.processId = clientTask.processId;
 	pClient.menuProcessId = menuTask.processId;
@@ -484,28 +503,28 @@ async function launchClient(pClient, pClientName) {
 	console.log(`[${pClientName}] Finished launching.`);
 }
 
-const licenseIdentifiers = process.env.LICENSE_IDENTIFIERS.split(" ");
+const licenseIdentifiers = config.LICENSE_IDENTIFIERS.split(" ");
 
-const clients = [
+const clients: Client[] = [
 	{
 		licenseIdentifier: licenseIdentifiers[0],
-		processId: false,
-		menuProcessId: false,
+		processId: null,
+		menuProcessId: null,
 		launching: false,
-		uptimeTimer: false,
+		uptimeTimer: null,
 		devtools: {
-			garbageTimer: false
+			garbageTimer: null
 		}
 	},
 
 	{
 		licenseIdentifier: licenseIdentifiers[1],
-		processId: false,
-		menuProcessId: false,
+		processId: null,
+		menuProcessId: null,
 		launching: false,
-		uptimeTimer: false,
+		uptimeTimer: null,
 		devtools: {
-			garbageTimer: false
+			garbageTimer: null
 		}
 	}
 ];
@@ -524,7 +543,7 @@ const clients = [
 
 	await closeOldClients();
 
-	await setDigitalEntitlements(null);
+	await setDigitalEntitlements();
 
 	while (true) {
 		const tasklist = await getTasklist();
@@ -540,11 +559,11 @@ const clients = [
 				if (!stillAlive) {
 					console.log(`[cl_${pClientIndex + 1}] Process ID is gone, deleting.`);
 
-					pClient.processId = false;
-					pClient.uptimeTimer = false;
-					pClient.menuProcessId = false;
+					pClient.processId = null;
+					pClient.uptimeTimer = null;
+					pClient.menuProcessId = null;
 
-					pClient.devtools.garbageTimer = false;
+					pClient.devtools.garbageTimer = null;
 				}
 			}
 		});
@@ -568,7 +587,7 @@ const clients = [
 		});
 
 		for (let clientIndex in clients) {
-			if (process.env.IS_SPECTATOR) {
+			if (config.IS_SPECTATOR) {
 				continue;
 			}
 
@@ -601,7 +620,7 @@ const clients = [
 		}
 
 		for (let clientIndex in clients) {
-			if (process.env.IS_SPECTATOR) {
+			if (config.IS_SPECTATOR) {
 				continue;
 			}
 
@@ -614,6 +633,10 @@ const clients = [
 			}
 
 			if (!client.licenseIdentifier) {
+				continue;
+			}
+
+			if (!client.uptimeTimer) {
 				continue;
 			}
 
@@ -632,8 +655,8 @@ const clients = [
 				console.log(`[${clientName}] Client has been up for longer than the acceptable time. Killing & restarting.`);
 
 				// NOTE: wait for both of these to be killed & dead for proper exit
-				await kill(client.processId);
-				await kill(client.menuProcessId);
+				if (client.processId) await kill(client.processId);
+				if (client.menuProcessId) await kill(client.menuProcessId);
 			}
 		}
 
@@ -658,8 +681,8 @@ const clients = [
 				console.log(`[${clientName}] Client is not on the server but the client is active. Killing & restarting.`);
 
 				// NOTE: wait for both of these to be killed & dead for proper exit
-				await kill(client.processId);
-				await kill(client.menuProcessId);
+				if (client.processId) await kill(client.processId);
+				if (client.menuProcessId) await kill(client.menuProcessId);
 			}
 		}
 
@@ -684,12 +707,10 @@ app.get("/status", (pRequest, pResponse) => {
 	});
 });
 
-const port = process.env.PORT || 3000;
-
-app.listen(port, pError => {
+app.listen(config.PORT, pError => {
 	if (pError) {
 		throw pError;
 	}
 
-	console.log(`[express] Listening on port ${port}!`);
+	console.log(`[express] Listening on port ${config.PORT}!`);
 });
