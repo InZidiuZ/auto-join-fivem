@@ -4,12 +4,12 @@ import util from "util";
 import crypto from "crypto";
 import childProcess from "child_process";
 
-import { forEach } from "p-iteration";
+import pIteration from "p-iteration";
 import axios from "axios";
 import Papa from "papaparse";
 import express from "express";
 
-import config from "./config";
+import config from "./config.ts";
 
 interface Player {
 	licenseIdentifier: string;
@@ -110,7 +110,7 @@ async function closeOldClients() {
 			break;
 		}
 
-		await forEach(tasklist, async pTask => {
+		await pIteration.forEach(tasklist, async pTask => {
 			if (pTask.processName === "FiveM.exe") {
 				await exec(`taskkill /F /pid ${pTask.processId}`)
 					.catch(pError => {});
