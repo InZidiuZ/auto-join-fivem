@@ -224,7 +224,7 @@ async function executeAHK(pFileName: string, pVariables: { [key: string]: string
 		connectScript = connectScript.replaceAll(`process.env.${pKey}`, String(pValue));
 	});
 
-	const temporaryScriptPath = path.join(path.resolve(__dirname), "temp", getRandomString(20) + ".ahk");
+	const temporaryScriptPath = path.join(path.resolve(path.dirname(import.meta.url)), "temp", getRandomString(20) + ".ahk");
 
 	await fs.writeFile(temporaryScriptPath, connectScript);
 
